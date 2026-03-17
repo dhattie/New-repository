@@ -774,7 +774,7 @@
 </div><!-- /container -->
 
 <script>
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAfxga01NOHpSQH9GD4lszfcDyZV9jvSBOxx-mCfyTZbHL4pbLoZHzcxdlJtChA1hx/exec';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIHONbnBcFyG6mHQCmMVxbSUnMTJF8GonhKhnhETV1WgIvRrqFias-QFW4_h5ERNDV/exec';
   const DEPOSIT = 4000;
   const GROUPS  = ['salad','soup','main','roll','drink','burger'];
 
@@ -788,38 +788,41 @@
   // ── Device ID ────────────────────────────────────────────────────────────────
   function getDeviceId() {
     let id = localStorage.getItem('lunch_device_id');
-    if (!id) { id = 'dev_' + Math.random().toString(36).substr(2,12); localStorage.setItem('lunch_device_id', id); }
+    if (!id) {
+      // ИСПРАВЛЕНО: substr устарел, используем slice
+      id = 'dev_' + Math.random().toString(36).slice(2, 14);
+      localStorage.setItem('lunch_device_id', id);
+    }
     return id;
   }
 
-  // ── [FIX 2] restoreDish — надёжное восстановление по price + точное совпадение имени ──
+  // ── restoreDish — восстановление выбора блюда (только по цене) ─────────────
   function restoreDish(group, nameWithPrice) {
     if (!nameWithPrice || nameWithPrice === '—') return;
 
-    // Парсим "Название — 1250 ₽"
     const match = nameWithPrice.match(/^(.+?)\s*—\s*([\d\s]+)\s*₽$/);
     if (!match) return;
     const name  = match[1].trim();
     const price = parseFloat(match[2].replace(/\s/g, ''));
 
-    // Сначала ищем среди карточек — сравниваем цену И полное имя
     let found = false;
     document.querySelectorAll('[name=' + group + ']').forEach(r => {
       if (found) return;
       if (r.value === 'custom' || r.value === '0') return;
       if (parseFloat(r.value) !== price) return;
+      // ФИКС: при совпадении цены дополнительно проверяем имя карточки
+      // чтобы кастомное блюдо не восстанавливалось как стандартное
       const card     = r.closest('.dish-card');
       const cardName = card && card.querySelector('.dish-name');
-      // [FIX 2] полное совпадение, не substring
-      if (cardName && cardName.textContent.trim() === name) {
-        r.checked = true;
-        card.classList.add('selected');
-        state[group] = { price, name };
-        found = true;
-      }
+      if (cardName && cardName.textContent.trim() !== name) return; // имя не совпало → custom
+      clearGroupCards(group);
+      r.checked = true;
+      if (card) card.classList.add('selected');
+      state[group] = { price, name };
+      found = true;
     });
 
-    // Не нашли в стандартных — это "Другое"
+    // fallback → custom
     if (!found) {
       state[group] = { price, name };
       const customRadio = document.getElementById('customRadio-' + group);
@@ -827,16 +830,18 @@
       const customName  = document.getElementById('customName-'  + group);
       const customPrice = document.getElementById('customPrice-' + group);
       if (customRadio && customWrap) {
+        clearGroupCards(group);
         customRadio.checked = true;
         customWrap.classList.add('active');
         if (customName)  customName.value  = name;
-        if (customPrice) customPrice.value = price;
+        if (customPrice && isFinite(price)) customPrice.value = price;
       }
     }
   }
 
-  // ── [FIX 8] восстановление "Без блюда" (price === 0 из таблицы) ──────────────
+  // ── restoreSkip — восстановление "Без блюда" ─────────────────────────────
   function restoreSkip(group) {
+    clearGroupCards(group);
     const skipRadio = document.querySelector('[name=' + group + '][value="0"]');
     if (skipRadio) {
       skipRadio.checked = true;
@@ -848,36 +853,60 @@
 
   // ── Загрузка данных при старте ────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', () => {
-    // [FIX UX] показываем индикатор загрузки
     const btn = document.querySelector('.submit-btn');
-    if (btn) btn.textContent = '⏳ Загружаем данные...';
 
+    // [БЫСТРО] Сначала восстанавливаем из localStorage-кеша мгновенно
+    const cached = localStorage.getItem('lunch_cached_data');
+    if (cached) {
+      try {
+        applyServerData(JSON.parse(cached));
+      } catch(e) {}
+    }
+
+    // [ФОНОВО] Потом тихо обновляем с сервера
+    if (btn) btn.textContent = '⏳ Загружаем данные...';
     fetch(SCRIPT_URL + '?device_id=' + encodeURIComponent(getDeviceId()))
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'ok') {
-          serverExtra   = parseFloat(data.extra) || 0;
-          serverDeposit = DEPOSIT + serverExtra;
-          if (data.fio) document.getElementById('fio').value = data.fio;
-          // Восстанавливаем каждое блюдо
-          GROUPS.forEach(g => {
-            const val = data[g];
-            if (!val || val === '—') {
-              // ничего не выбрано — оставляем null
-            } else if (val === '0' || val === 0) {
-              restoreSkip(g); // [FIX 8] "Без блюда"
-            } else {
-              restoreDish(g, val);
-            }
-          });
+      .then(r => {
+        // ФИКС: GAS иногда возвращает HTML при ошибке деплоя — проверяем тип
+        const ct = r.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) {
+          return r.text().then(t => { throw new Error('Не JSON: ' + t.slice(0, 100)); });
         }
-        updateBudget();
+        return r.json();
       })
-      .catch(() => updateBudget())
+      .then(data => {
+        localStorage.setItem('lunch_cached_data', JSON.stringify(data));
+        applyServerData(data);
+      })
+      .catch(err => {
+        console.warn('Load error:', err); // не silent fail — хотя бы в консоль
+      })
       .finally(() => {
         if (btn) btn.textContent = 'Отправить заказ';
       });
   });
+
+  function applyServerData(data) {
+    if (data.status === 'ok') {
+      serverExtra   = parseFloat(data.extra) || 0;
+      // ФИКС: initialBalance — чистый начальный баланс (4000), extra добавляем сверху
+      serverDeposit = (parseFloat(data.initialBalance) || DEPOSIT) + serverExtra;
+      if (data.fio) document.getElementById('fio').value = data.fio;
+      GROUPS.forEach(g => clearGroupCards(g));
+      GROUPS.forEach(g => {
+        const val = data[g];
+        if (!val || val === '—') {
+          // ФИКС: '—' = сервер вернул пустое поле = пользователь не выбирал
+          // НЕ вызываем restoreSkip — оставляем null
+        } else if (val === '0' || val === 0) {
+          restoreSkip(g); // явно выбрал "Без блюда"
+        } else {
+          restoreDish(g, val);
+        }
+      });
+    }
+    updateBudget();
+  }
 
   // ── Вспомогательные ──────────────────────────────────────────────────────────
   function clearGroupCards(group) {
@@ -892,13 +921,12 @@
   function selectDish(group, price, name) {
     clearGroupCards(group);
     state[group] = { price, name };
-    setTimeout(() => {
-      const checked = document.querySelector('[name=' + group + ']:checked');
-      if (checked) {
-        const p = checked.closest('.dish-card,.skip-option');
-        if (p) p.classList.add('selected');
-      }
-    }, 10);
+    // ФИКС: убран setTimeout — radio уже checked после clearGroupCards+onclick
+    const checked = document.querySelector('[name=' + group + ']:checked');
+    if (checked) {
+      const p = checked.closest('.dish-card,.skip-option');
+      if (p) p.classList.add('selected');
+    }
     hideError(group);
     updateBudget();
   }
@@ -1048,11 +1076,12 @@
     const diff     = serverDeposit - grand;
     const isOver   = diff < 0;
 
-    // [FIX 4] dishStr — формируем строку для таблицы
+    // ИСПРАВЛЕНО: защита от пустого имени
     function dishStr(g) {
       const p = Number(state[g].price);
       if (!isFinite(p) || p <= 0) return '—';
-      return state[g].name + ' — ' + p + ' ₽';
+      const name = (state[g].name && state[g].name.trim()) ? state[g].name.trim() : 'Своё блюдо';
+      return name + ' — ' + p + ' ₽';
     }
 
     const payload = {
@@ -1069,21 +1098,52 @@
       total: grand
     };
 
-    // [FIX 4] убираем mode:'no-cors' → теперь читаем реальный ответ
+    // ФИКС: показываем успех сразу, не ждём сервер — убирает 5-секундный лаг
+    showSuccess(fio, subtotal, service, grand, diff, isOver);
+
     fetch(SCRIPT_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'text/plain' }, // GAS требует text/plain для простых запросов
+      headers: { 'Content-Type': 'text/plain' },
       body:    JSON.stringify(payload)
     })
-    .then(r => r.json())
+    .then(r => {
+      // ФИКС: проверяем content-type — GAS при ошибке деплоя возвращает HTML
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        return r.text().then(t => { throw new Error('Не JSON: ' + t.slice(0, 100)); });
+      }
+      return r.json();
+    })
     .then(resp => {
       if (resp.status !== 'ok') throw new Error(resp.message || 'server error');
-      showSuccess(fio, subtotal, service, grand, diff, isOver);
+      // обновляем кеш после успешного POST
+      const freshData = {
+        status:         'ok',
+        fio,
+        salad:          payload.salad,
+        soup:           payload.soup,
+        main:           payload.main,
+        roll:           payload.roll,
+        drink:          payload.drink,
+        burger:         payload.burger,
+        subtotal,
+        service,
+        total:          grand,
+        extra:          serverExtra,
+        initialBalance: serverDeposit - serverExtra,
+        balance:        resp.balance || (serverDeposit - grand)
+      };
+      localStorage.setItem('lunch_cached_data', JSON.stringify(freshData));
     })
     .catch(err => {
       console.warn('Sheets error:', err);
-      // Даже при ошибке сети показываем успех пользователю — заказ мог записаться
-      showSuccess(fio, subtotal, service, grand, diff, isOver);
+      // заказ уже показан — добавляем предупреждение в итог если есть элемент
+      const summary = document.getElementById('orderSummary');
+      if (summary) {
+        summary.insertAdjacentHTML('beforeend',
+          '<div style="color:var(--warning);margin-top:12px;font-size:0.85rem">⚠️ Нет связи с сервером. Обновите страницу и проверьте заказ.</div>'
+        );
+      }
     })
     .finally(() => {
       isSubmitting = false;
@@ -1091,12 +1151,17 @@
     });
   }
 
+  // ФИКС XSS: экранируем пользовательский ввод перед вставкой в HTML
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
   function showSuccess(fio, subtotal, service, grand, diff, isOver) {
-    let summaryHtml = '<div class="summary-row" style="font-weight:700;border-bottom:2px solid var(--border);padding-bottom:12px;margin-bottom:4px"><span>👤 ' + fio + '</span></div>';
+    let summaryHtml = '<div class="summary-row" style="font-weight:700;border-bottom:2px solid var(--border);padding-bottom:12px;margin-bottom:4px"><span>👤 ' + escapeHtml(fio) + '</span></div>';
     GROUPS.forEach(g => {
       const p = Number(state[g].price);
       if (isFinite(p) && p > 0) {
-        summaryHtml += '<div class="summary-row"><span>' + state[g].name + '</span><span>' + p.toLocaleString('ru-RU') + ' ₽</span></div>';
+        summaryHtml += '<div class="summary-row"><span>' + escapeHtml(state[g].name) + '</span><span>' + p.toLocaleString('ru-RU') + ' ₽</span></div>';
       }
     });
     summaryHtml += '<div class="summary-row total"><span>Итого (без обслуживания)</span><span>' + subtotal.toLocaleString('ru-RU') + ' ₽</span></div>';
