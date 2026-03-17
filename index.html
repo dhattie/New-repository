@@ -806,21 +806,33 @@
     const price = parseFloat(match[2].replace(/\s/g, ''));
 
     let found = false;
-    document.querySelectorAll('[name=' + group + ']').forEach(r => {
-      if (found) return;
-      if (r.value === 'custom' || r.value === '0') return;
-      if (parseFloat(r.value) !== price) return;
-      // ФИКС: при совпадении цены дополнительно проверяем имя карточки
-      // чтобы кастомное блюдо не восстанавливалось как стандартное
+    const radios = Array.from(document.querySelectorAll('[name=' + group + ']'))
+      .filter(r => r.value !== 'custom' && r.value !== '0' && parseFloat(r.value) === price);
+
+    // Сначала пробуем точное совпадение по цене + имени (защита от кастомного)
+    for (const r of radios) {
       const card     = r.closest('.dish-card');
       const cardName = card && card.querySelector('.dish-name');
-      if (cardName && cardName.textContent.trim() !== name) return; // имя не совпало → custom
+      if (cardName && cardName.textContent.trim() === name) {
+        clearGroupCards(group);
+        r.checked = true;
+        card.classList.add('selected');
+        state[group] = { price, name };
+        found = true;
+        break;
+      }
+    }
+
+    // Если не нашли по имени — берём первый по цене (имя могло обрезаться/измениться)
+    if (!found && radios.length > 0) {
+      const r    = radios[0];
+      const card = r.closest('.dish-card');
       clearGroupCards(group);
       r.checked = true;
       if (card) card.classList.add('selected');
       state[group] = { price, name };
       found = true;
-    });
+    }
 
     // fallback → custom
     if (!found) {
