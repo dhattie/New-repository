@@ -774,7 +774,7 @@
 </div><!-- /container -->
 
 <script>
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx36psFLIJZmS09fx8-kc-HMTvJCpb4mRF1KgBhkr73ugEMtTyB8i8n7tjvfDOlCgeR/exec';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbws0GNLrT9Hk7e1X_EyXI8YPJLb6pMQ7jL-WV4CXSISdD6NKic7O202esNRs9lTbxRw/exec';
   const DEPOSIT = 4000;
 
   const GROUPS = ['salad','soup','main','roll','drink','burger'];
@@ -1038,15 +1038,19 @@
     window.scrollTo({top:0,behavior:'smooth'});
 
     // Отправка в Google Sheets
+    function dishStr(g) {
+      if (state[g].price === null || state[g].price === 0) return '—';
+      return state[g].name + ' — ' + state[g].price + ' ₽';
+    }
     const payload = {
       device_id: getDeviceId(),
-      fio:    fio,
-      salad:  state.salad.price  > 0 ? state.salad.name  + ' — ' + state.salad.price  + ' ₽' : '—',
-      soup:   state.soup.price   > 0 ? state.soup.name   + ' — ' + state.soup.price   + ' ₽' : '—',
-      main:   state.main.price   > 0 ? state.main.name   + ' — ' + state.main.price   + ' ₽' : '—',
-      roll:   state.roll.price   > 0 ? state.roll.name   + ' — ' + state.roll.price   + ' ₽' : '—',
-      drink:  state.drink.price  > 0 ? state.drink.name  + ' — ' + state.drink.price  + ' ₽' : '—',
-      burger: state.burger.price > 0 ? state.burger.name + ' — ' + state.burger.price + ' ₽' : '—',
+      fio:      fio,
+      salad:    dishStr('salad'),
+      soup:     dishStr('soup'),
+      main:     dishStr('main'),
+      roll:     dishStr('roll'),
+      drink:    dishStr('drink'),
+      burger:   dishStr('burger'),
       subtotal: subtotal,
       service:  service,
       total:    grand
