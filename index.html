@@ -156,6 +156,36 @@
   .summary-row.grand-total { font-weight: 700; font-size: 1.05rem; color: var(--accent); }
   .summary-row.deposit-ok   { color: var(--success); font-weight: 700; }
   .summary-row.deposit-over { color: var(--warning); font-weight: 700; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: white; border-radius: 20px; padding: 36px 28px;
+    max-width: 360px; width: 90%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  .modal-icon { font-size: 3rem; margin-bottom: 16px; }
+  .modal h3 { font-family: 'Playfair Display', serif; font-size: 1.3rem; margin-bottom: 10px; color: var(--text); }
+  .modal p  { font-size: 0.9rem; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
+  .modal-amount { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; color: var(--accent); display: block; margin: 8px 0 4px; }
+  .modal-current { font-size: 0.82rem; color: var(--muted); margin-bottom: 20px; display: block; }
+  .modal-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white; border: none; border-radius: 10px; padding: 14px 32px;
+    font-family: 'Playfair Display', serif; font-size: 1rem; cursor: pointer;
+    width: 100%; transition: opacity 0.2s;
+  }
+  .modal-btn:hover { opacity: 0.9; }
 </style>
 </head>
 <body>
@@ -164,6 +194,18 @@
   <h1>🍽 Выбор блюд</h1>
   <p>Выбери блюда на свой вкус</p>
 </header>
+
+<!-- Модальное окно: минимальная сумма -->
+<div class="modal-overlay" id="minOrderModal" onclick="closeMinOrderModal(event)">
+  <div class="modal">
+    <div class="modal-icon">🛒</div>
+    <h3>Минимальная сумма заказа</h3>
+    <span class="modal-amount">3 125 ₽</span>
+    <span class="modal-current" id="modalCurrentAmount"></span>
+    <p>Пожалуйста, добавьте ещё блюд чтобы достичь минимальной суммы заказа.</p>
+    <button class="modal-btn" onclick="closeMinOrderModal()">Добавить блюда</button>
+  </div>
+</div>
 
 <div class="container">
   <div class="budget-bar" id="budgetBar">
@@ -785,6 +827,13 @@
   let serverDeposit = DEPOSIT;
   let isSubmitting  = false; // [FIX 5] защита от двойной отправки
 
+  function closeMinOrderModal(event) {
+    // закрываем по клику на overlay или по кнопке
+    if (!event || event.target === document.getElementById('minOrderModal')) {
+      document.getElementById('minOrderModal').classList.remove('active');
+    }
+  }
+
   // ── Device ID ────────────────────────────────────────────────────────────────
   function getDeviceId() {
     let id = localStorage.getItem('lunch_device_id');
@@ -1081,13 +1130,10 @@
     const MIN_ORDER = 3125;
     const currentSubtotal = getSubtotal();
     if (currentSubtotal < MIN_ORDER) {
-      document.getElementById('noDishError').textContent =
-        'Минимальная сумма заказа — ' + MIN_ORDER.toLocaleString('ru-RU') + ' ₽. Сейчас: ' + currentSubtotal.toLocaleString('ru-RU') + ' ₽';
-      document.getElementById('noDishError').style.display = 'block';
-      window.scrollTo({top:0,behavior:'smooth'});
+      const el = document.getElementById('modalCurrentAmount');
+      if (el) el.textContent = 'Сейчас в заказе: ' + currentSubtotal.toLocaleString('ru-RU') + ' ₽';
+      document.getElementById('minOrderModal').classList.add('active');
       return;
-    } else {
-      document.getElementById('noDishError').style.display = 'none';
     }
 
     // [FIX 5] блокируем кнопку
