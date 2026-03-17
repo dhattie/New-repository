@@ -267,7 +267,7 @@
         </label>
 
       </div>
-      <div class="section-error" id="saladError">Выберите салат или «Без салата»</div>
+      
     </div>
 
     <!-- СУПЫ -->
@@ -334,7 +334,7 @@
         </label>
 
       </div>
-      <div class="section-error" id="soupError">Выберите суп или «Без супа»</div>
+      
     </div>
 
     <!-- ГОРЯЧЕЕ -->
@@ -391,7 +391,7 @@
         </label>
 
       </div>
-      <div class="section-error" id="mainError">Выберите горячее или «Без горячего»</div>
+      
     </div>
 
     <!-- РОЛЛЫ -->
@@ -558,7 +558,7 @@
         </label>
 
       </div>
-      <div class="section-error" id="rollError">Выберите ролл или «Без ролл»</div>
+      
     </div>
 
     <!-- БУРГЕРЫ -->
@@ -625,7 +625,7 @@
         </label>
 
       </div>
-      <div class="section-error" id="burgerError">Выберите бургер или «Без бургера»</div>
+      
     </div>
 
     <!-- НАПИТКИ -->
@@ -756,9 +756,10 @@
         </label>
 
       </div>
-      <div class="section-error" id="drinkError">Выберите напиток или «Без напитка»</div>
+      
     </div>
 
+    <div id="noDishError" style="display:none;font-size:0.85rem;color:var(--warning);text-align:center;margin-bottom:10px;">Выберите хотя бы одно блюдо</div>
     <button class="submit-btn" onclick="submitOrder()">Отправить заказ</button>
 
   </div><!-- /orderForm -->
@@ -791,6 +792,52 @@
     return id;
   }
 
+  // Восстанавливает выбор блюда из сохранённых данных
+  function restoreDish(group, nameWithPrice) {
+    if (!nameWithPrice || nameWithPrice === '—') {
+      // Ничего не выбрано — оставляем пустым
+      return;
+    }
+    // Парсим "Название — 1250 ₽"
+    const match = nameWithPrice.match(/^(.+?)\s*—\s*([\d\s]+)\s*₽$/);
+    if (!match) return;
+    const name  = match[1].trim();
+    const price = parseFloat(match[2].replace(/\s/g, ''));
+
+    // Ищем среди radio-кнопок блюдо с такой ценой и названием
+    const radios = document.querySelectorAll('[name=' + group + ']');
+    let found = false;
+    radios.forEach(r => {
+      if (parseFloat(r.value) === price && r.value !== 'custom' && r.value !== '0') {
+        const card = r.closest('.dish-card');
+        if (card) {
+          const cardName = card.querySelector('.dish-name');
+          if (cardName && cardName.textContent.trim().substring(0, 20) === name.substring(0, 20)) {
+            r.checked = true;
+            card.classList.add('selected');
+            state[group] = { price, name };
+            found = true;
+          }
+        }
+      }
+    });
+
+    // Если не нашли среди стандартных — значит "Другое"
+    if (!found) {
+      state[group] = { price, name };
+      const customRadio = document.getElementById('customRadio-' + group);
+      const customWrap  = document.getElementById('customWrap-'  + group);
+      const customName  = document.getElementById('customName-'  + group);
+      const customPrice = document.getElementById('customPrice-' + group);
+      if (customRadio && customWrap) {
+        customRadio.checked = true;
+        customWrap.classList.add('active');
+        if (customName)  customName.value  = name;
+        if (customPrice) customPrice.value = price;
+      }
+    }
+  }
+
   // Load balance from server
   window.addEventListener('DOMContentLoaded', () => {
     const deviceId = getDeviceId();
@@ -798,10 +845,22 @@
       .then(r => r.json())
       .then(data => {
         if (data.status === 'ok') {
-          serverExtra = parseFloat(data.extra) || 0;
-          // Если в таблице есть доп. взнос — обновляем доступный бюджет
+          serverExtra   = parseFloat(data.extra) || 0;
           serverDeposit = DEPOSIT + serverExtra;
           if (data.fio) document.getElementById('fio').value = data.fio;
+          // Восстанавливаем выбранные блюда
+          if (data.salad)  restoreDish('salad',  data.salad);
+          if (data.soup)   restoreDish('soup',   data.soup);
+          if (data.main)   restoreDish('main',   data.main);
+          if (data.roll)   restoreDish('roll',   data.roll);
+          if (data.burger) restoreDish('burger', data.burger);
+          if (data.drink)  restoreDish('drink',  data.drink);
+          // Восстанавливаем "Без ..." если выбрано 0
+          ['salad','soup','main','roll','burger','drink'].forEach(g => {
+            if (state[g].price === null) {
+              // Проверяем — может в таблице было "—" (не выбрано ничего)
+            }
+          });
         }
         updateBudget();
       })
@@ -931,14 +990,16 @@
       document.getElementById('fioError').style.display = 'none';
     }
 
-    const errorMap = { salad:'saladError', soup:'soupError', main:'mainError', roll:'rollError', drink:'drinkError', burger:'burgerError' };
-    GROUPS.forEach(g => {
-      if (state[g].price === null) {
-        document.getElementById(errorMap[g]).style.display = 'block';
-        valid = false;
-      }
-    });
+    // Нужно выбрать хотя бы одно блюдо
+    const hasAnyDish = GROUPS.some(g => state[g].price !== null);
+    if (!hasAnyDish) {
+      document.getElementById('noDishError').style.display = 'block';
+      valid = false;
+    } else {
+      document.getElementById('noDishError').style.display = 'none';
+    }
 
+    // Если выбрано "Другое" — цена обязательна
     if (!validateCustomFields()) valid = false;
 
     if (!valid) { window.scrollTo({top:0,behavior:'smooth'}); return; }
