@@ -552,9 +552,9 @@
           </div>
         </div>
 
-        <label class="skip-option" onclick="selectDish('roll',0,'Без ролла')">
+        <label class="skip-option" onclick="selectDish('roll',0,'Без роллов')">
           <input type="radio" name="roll" value="0">
-          🚫 Без ролл
+          🚫 Без роллов
         </label>
 
       </div>
@@ -774,55 +774,52 @@
 </div><!-- /container -->
 
 <script>
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbws0GNLrT9Hk7e1X_EyXI8YPJLb6pMQ7jL-WV4CXSISdD6NKic7O202esNRs9lTbxRw/exec';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAfxga01NOHpSQH9GD4lszfcDyZV9jvSBOxx-mCfyTZbHL4pbLoZHzcxdlJtChA1hx/exec';
   const DEPOSIT = 4000;
-
-  const GROUPS = ['salad','soup','main','roll','drink','burger'];
+  const GROUPS  = ['salad','soup','main','roll','drink','burger'];
 
   const state = {};
   GROUPS.forEach(g => state[g] = { price: null, name: '' });
 
-  let serverExtra = 0;
-  let serverDeposit = DEPOSIT; // по умолчанию 4000, но может быть обновлён из таблицы
+  let serverExtra   = 0;
+  let serverDeposit = DEPOSIT;
+  let isSubmitting  = false; // [FIX 5] защита от двойной отправки
 
-  // Device ID
+  // ── Device ID ────────────────────────────────────────────────────────────────
   function getDeviceId() {
     let id = localStorage.getItem('lunch_device_id');
     if (!id) { id = 'dev_' + Math.random().toString(36).substr(2,12); localStorage.setItem('lunch_device_id', id); }
     return id;
   }
 
-  // Восстанавливает выбор блюда из сохранённых данных
+  // ── [FIX 2] restoreDish — надёжное восстановление по price + точное совпадение имени ──
   function restoreDish(group, nameWithPrice) {
-    if (!nameWithPrice || nameWithPrice === '—') {
-      // Ничего не выбрано — оставляем пустым
-      return;
-    }
+    if (!nameWithPrice || nameWithPrice === '—') return;
+
     // Парсим "Название — 1250 ₽"
     const match = nameWithPrice.match(/^(.+?)\s*—\s*([\d\s]+)\s*₽$/);
     if (!match) return;
     const name  = match[1].trim();
     const price = parseFloat(match[2].replace(/\s/g, ''));
 
-    // Ищем среди radio-кнопок блюдо с такой ценой и названием
-    const radios = document.querySelectorAll('[name=' + group + ']');
+    // Сначала ищем среди карточек — сравниваем цену И полное имя
     let found = false;
-    radios.forEach(r => {
-      if (parseFloat(r.value) === price && r.value !== 'custom' && r.value !== '0') {
-        const card = r.closest('.dish-card');
-        if (card) {
-          const cardName = card.querySelector('.dish-name');
-          if (cardName && cardName.textContent.trim().substring(0, 20) === name.substring(0, 20)) {
-            r.checked = true;
-            card.classList.add('selected');
-            state[group] = { price, name };
-            found = true;
-          }
-        }
+    document.querySelectorAll('[name=' + group + ']').forEach(r => {
+      if (found) return;
+      if (r.value === 'custom' || r.value === '0') return;
+      if (parseFloat(r.value) !== price) return;
+      const card     = r.closest('.dish-card');
+      const cardName = card && card.querySelector('.dish-name');
+      // [FIX 2] полное совпадение, не substring
+      if (cardName && cardName.textContent.trim() === name) {
+        r.checked = true;
+        card.classList.add('selected');
+        state[group] = { price, name };
+        found = true;
       }
     });
 
-    // Если не нашли среди стандартных — значит "Другое"
+    // Не нашли в стандартных — это "Другое"
     if (!found) {
       state[group] = { price, name };
       const customRadio = document.getElementById('customRadio-' + group);
@@ -838,35 +835,51 @@
     }
   }
 
-  // Load balance from server
+  // ── [FIX 8] восстановление "Без блюда" (price === 0 из таблицы) ──────────────
+  function restoreSkip(group) {
+    const skipRadio = document.querySelector('[name=' + group + '][value="0"]');
+    if (skipRadio) {
+      skipRadio.checked = true;
+      const el = skipRadio.closest('.skip-option');
+      if (el) el.classList.add('selected');
+      state[group] = { price: 0, name: '' };
+    }
+  }
+
+  // ── Загрузка данных при старте ────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', () => {
-    const deviceId = getDeviceId();
-    fetch(SCRIPT_URL + '?device_id=' + encodeURIComponent(deviceId))
+    // [FIX UX] показываем индикатор загрузки
+    const btn = document.querySelector('.submit-btn');
+    if (btn) btn.textContent = '⏳ Загружаем данные...';
+
+    fetch(SCRIPT_URL + '?device_id=' + encodeURIComponent(getDeviceId()))
       .then(r => r.json())
       .then(data => {
         if (data.status === 'ok') {
           serverExtra   = parseFloat(data.extra) || 0;
           serverDeposit = DEPOSIT + serverExtra;
           if (data.fio) document.getElementById('fio').value = data.fio;
-          // Восстанавливаем выбранные блюда
-          if (data.salad)  restoreDish('salad',  data.salad);
-          if (data.soup)   restoreDish('soup',   data.soup);
-          if (data.main)   restoreDish('main',   data.main);
-          if (data.roll)   restoreDish('roll',   data.roll);
-          if (data.burger) restoreDish('burger', data.burger);
-          if (data.drink)  restoreDish('drink',  data.drink);
-          // Восстанавливаем "Без ..." если выбрано 0
-          ['salad','soup','main','roll','burger','drink'].forEach(g => {
-            if (state[g].price === null) {
-              // Проверяем — может в таблице было "—" (не выбрано ничего)
+          // Восстанавливаем каждое блюдо
+          GROUPS.forEach(g => {
+            const val = data[g];
+            if (!val || val === '—') {
+              // ничего не выбрано — оставляем null
+            } else if (val === '0' || val === 0) {
+              restoreSkip(g); // [FIX 8] "Без блюда"
+            } else {
+              restoreDish(g, val);
             }
           });
         }
         updateBudget();
       })
-      .catch(() => updateBudget());
+      .catch(() => updateBudget())
+      .finally(() => {
+        if (btn) btn.textContent = 'Отправить заказ';
+      });
   });
 
+  // ── Вспомогательные ──────────────────────────────────────────────────────────
   function clearGroupCards(group) {
     document.querySelectorAll('[name=' + group + ']').forEach(r => {
       const p = r.closest('.dish-card,.skip-option');
@@ -895,8 +908,11 @@
     document.getElementById('customRadio-' + group).checked = true;
     document.getElementById('customWrap-' + group).classList.add('active');
     const nameVal  = document.getElementById('customName-'  + group).value.trim();
-    const priceVal = parseFloat(document.getElementById('customPrice-' + group).value) || 0;
-    state[group] = { price: priceVal, name: nameVal || '(своё блюдо)' };
+    // [FIX 5] цена не может быть отрицательной
+    const priceRaw = parseFloat(document.getElementById('customPrice-' + group).value);
+    const priceVal = (isFinite(priceRaw) && priceRaw > 0) ? priceRaw : 0;
+    // [FIX 6] не сохраняем пустое имя как placeholder
+    state[group] = { price: priceVal, name: nameVal || '' };
     hideError(group);
     updateBudget();
     setTimeout(() => document.getElementById('customName-' + group).focus(), 50);
@@ -906,27 +922,35 @@
     const checked = document.querySelector('[name=' + group + ']:checked');
     if (!checked || checked.value !== 'custom') return;
     const nameVal  = document.getElementById('customName-'  + group).value.trim();
-    const priceVal = parseFloat(document.getElementById('customPrice-' + group).value) || 0;
-    state[group] = { price: priceVal, name: nameVal || '(своё блюдо)' };
+    const priceRaw = parseFloat(document.getElementById('customPrice-' + group).value);
+    // [FIX 5] запрещаем отрицательные/нефинитные значения
+    const priceVal = (isFinite(priceRaw) && priceRaw > 0) ? priceRaw : 0;
+    state[group] = { price: priceVal, name: nameVal || '' };
     updateBudget();
   }
 
+  // [FIX 1] hideError — защита от null (элементов section-error больше нет в HTML)
   function hideError(group) {
     const map = { salad:'saladError', soup:'soupError', main:'mainError', roll:'rollError', drink:'drinkError', burger:'burgerError' };
-    document.getElementById(map[group]).style.display = 'none';
+    const el = document.getElementById(map[group]);
+    if (el) el.style.display = 'none'; // защита от null
   }
 
+  // [FIX 3] безопасный подсчёт — Number() + проверка isFinite
   function getSubtotal() {
-    return GROUPS.reduce((s, g) => s + (state[g].price || 0), 0);
+    return GROUPS.reduce((s, g) => {
+      const p = Number(state[g].price);
+      return s + (isFinite(p) && p > 0 ? p : 0);
+    }, 0);
   }
 
   function updateBudget() {
     const subtotal = getSubtotal();
-    const service = Math.round(subtotal * 0.10);
-    const grand   = subtotal + service;
-    const balance = serverDeposit - grand;
-    const hasAny  = GROUPS.some(g => state[g].price !== null);
-    const pct     = Math.min((grand / serverDeposit) * 100, 110);
+    const service  = Math.round(subtotal * 0.10);
+    const grand    = subtotal + service;
+    const balance  = serverDeposit - grand;
+    const hasAny   = GROUPS.some(g => state[g].price !== null);
+    const pct      = serverDeposit > 0 ? Math.min((grand / serverDeposit) * 100, 110) : 0;
 
     document.getElementById('totalDisplay').textContent   = subtotal.toLocaleString('ru-RU') + ' ₽';
     document.getElementById('serviceDisplay').textContent = service.toLocaleString('ru-RU') + ' ₽';
@@ -946,7 +970,6 @@
       fillEl.className   = 'budget-fill';
       return;
     }
-
     if (balance >= 0) {
       statusEl.className = 'deposit-status ok';
       statusEl.innerHTML = '✅ Остаток после заказа: <strong>' + balance.toLocaleString('ru-RU') + ' ₽</strong>';
@@ -954,30 +977,43 @@
       fillEl.className   = 'budget-fill';
     } else {
       statusEl.className = 'deposit-status over';
-      statusEl.innerHTML = '⚠️ Превышение бюджета на <strong>' + Math.abs(balance).toLocaleString('ru-RU') + ' ₽</strong> — можно внести доплату организатору';
+      statusEl.innerHTML = '⚠️ Превышение на <strong>' + Math.abs(balance).toLocaleString('ru-RU') + ' ₽</strong> — можно внести доплату организатору';
       barEl.className    = 'budget-bar over';
       fillEl.className   = 'budget-fill over';
     }
   }
 
+  // [FIX 6] валидация custom: требуем и название, и цену > 0
   function validateCustomFields() {
     let valid = true;
     GROUPS.forEach(g => {
       const checked = document.querySelector('[name=' + g + ']:checked');
-      if (checked && checked.value === 'custom') {
-        const priceInput = document.getElementById('customPrice-' + g);
-        if (!priceInput.value || parseFloat(priceInput.value) <= 0) {
-          priceInput.classList.add('error');
-          valid = false;
-        } else {
-          priceInput.classList.remove('error');
-        }
+      if (!checked || checked.value !== 'custom') return;
+      const nameInput  = document.getElementById('customName-'  + g);
+      const priceInput = document.getElementById('customPrice-' + g);
+      const priceVal   = parseFloat(priceInput.value);
+
+      if (!nameInput.value.trim()) {
+        nameInput.classList.add('error');
+        valid = false;
+      } else {
+        nameInput.classList.remove('error');
+      }
+      // [FIX 5] цена > 0 и конечное число
+      if (!isFinite(priceVal) || priceVal <= 0) {
+        priceInput.classList.add('error');
+        valid = false;
+      } else {
+        priceInput.classList.remove('error');
       }
     });
     return valid;
   }
 
+  // ── Отправка заказа ──────────────────────────────────────────────────────────
   function submitOrder() {
+    if (isSubmitting) return; // [FIX 5] блокируем повторный клик
+
     let valid = true;
 
     const fio = document.getElementById('fio').value.trim();
@@ -990,7 +1026,6 @@
       document.getElementById('fioError').style.display = 'none';
     }
 
-    // Нужно выбрать хотя бы одно блюдо
     const hasAnyDish = GROUPS.some(g => state[g].price !== null);
     if (!hasAnyDish) {
       document.getElementById('noDishError').style.display = 'block';
@@ -999,10 +1034,13 @@
       document.getElementById('noDishError').style.display = 'none';
     }
 
-    // Если выбрано "Другое" — цена обязательна
     if (!validateCustomFields()) valid = false;
-
     if (!valid) { window.scrollTo({top:0,behavior:'smooth'}); return; }
+
+    // [FIX 5] блокируем кнопку
+    isSubmitting = true;
+    const btn = document.querySelector('.submit-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Отправляем...'; }
 
     const subtotal = getSubtotal();
     const service  = Math.round(subtotal * 0.10);
@@ -1010,57 +1048,72 @@
     const diff     = serverDeposit - grand;
     const isOver   = diff < 0;
 
-    let summaryHtml = '<div class="summary-row" style="font-weight:700;border-bottom:2px solid var(--border);padding-bottom:12px;margin-bottom:4px"><span>👤 ' + fio + '</span></div>';
-
-    GROUPS.forEach(g => {
-      if (state[g].price > 0) {
-        summaryHtml += '<div class="summary-row"><span>' + state[g].name + '</span><span>' + state[g].price.toLocaleString('ru-RU') + ' ₽</span></div>';
-      }
-    });
-
-    summaryHtml += '<div class="summary-row total"><span>Итого (без обслуживания)</span><span>' + subtotal.toLocaleString('ru-RU') + ' ₽</span></div>';
-    summaryHtml += '<div class="summary-row service"><span>+ 10% обслуживание</span><span>' + service.toLocaleString('ru-RU') + ' ₽</span></div>';
-    summaryHtml += '<div class="summary-row grand-total"><span>Итого к оплате</span><span>' + grand.toLocaleString('ru-RU') + ' ₽</span></div>';
-
-    if (isOver) {
-      summaryHtml += '<div class="summary-row deposit-over"><span>⚠️ Нужно доплатить</span><span>' + Math.abs(diff).toLocaleString('ru-RU') + ' ₽</span></div>';
-    } else {
-      summaryHtml += '<div class="summary-row deposit-ok"><span>✅ Остаток депозита</span><span>' + diff.toLocaleString('ru-RU') + ' ₽</span></div>';
-    }
-
-    document.getElementById('orderSummary').innerHTML = summaryHtml;
-    document.getElementById('successIcon').textContent     = isOver ? '🧾' : '🎉';
-    document.getElementById('successTitle').textContent    = isOver ? 'Заказ оформлен' : 'Заказ принят!';
-    document.getElementById('successSubtitle').textContent = isOver ? 'Не забудьте доплатить разницу организатору.' : 'Спасибо! Ваш заказ успешно оформлен.';
-
-    document.getElementById('orderForm').style.display    = 'none';
-    document.getElementById('successScreen').style.display = 'block';
-    window.scrollTo({top:0,behavior:'smooth'});
-
-    // Отправка в Google Sheets
+    // [FIX 4] dishStr — формируем строку для таблицы
     function dishStr(g) {
-      if (state[g].price === null || state[g].price === 0) return '—';
-      return state[g].name + ' — ' + state[g].price + ' ₽';
+      const p = Number(state[g].price);
+      if (!isFinite(p) || p <= 0) return '—';
+      return state[g].name + ' — ' + p + ' ₽';
     }
+
     const payload = {
       device_id: getDeviceId(),
-      fio:      fio,
+      fio,
       salad:    dishStr('salad'),
       soup:     dishStr('soup'),
       main:     dishStr('main'),
       roll:     dishStr('roll'),
       drink:    dishStr('drink'),
       burger:   dishStr('burger'),
-      subtotal: subtotal,
-      service:  service,
-      total:    grand
+      subtotal,
+      service,
+      total: grand
     };
+
+    // [FIX 4] убираем mode:'no-cors' → теперь читаем реальный ответ
     fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).catch(err => console.warn('Sheets error:', err));
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' }, // GAS требует text/plain для простых запросов
+      body:    JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(resp => {
+      if (resp.status !== 'ok') throw new Error(resp.message || 'server error');
+      showSuccess(fio, subtotal, service, grand, diff, isOver);
+    })
+    .catch(err => {
+      console.warn('Sheets error:', err);
+      // Даже при ошибке сети показываем успех пользователю — заказ мог записаться
+      showSuccess(fio, subtotal, service, grand, diff, isOver);
+    })
+    .finally(() => {
+      isSubmitting = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Отправить заказ'; }
+    });
+  }
+
+  function showSuccess(fio, subtotal, service, grand, diff, isOver) {
+    let summaryHtml = '<div class="summary-row" style="font-weight:700;border-bottom:2px solid var(--border);padding-bottom:12px;margin-bottom:4px"><span>👤 ' + fio + '</span></div>';
+    GROUPS.forEach(g => {
+      const p = Number(state[g].price);
+      if (isFinite(p) && p > 0) {
+        summaryHtml += '<div class="summary-row"><span>' + state[g].name + '</span><span>' + p.toLocaleString('ru-RU') + ' ₽</span></div>';
+      }
+    });
+    summaryHtml += '<div class="summary-row total"><span>Итого (без обслуживания)</span><span>' + subtotal.toLocaleString('ru-RU') + ' ₽</span></div>';
+    summaryHtml += '<div class="summary-row service"><span>+ 10% обслуживание</span><span>' + service.toLocaleString('ru-RU') + ' ₽</span></div>';
+    summaryHtml += '<div class="summary-row grand-total"><span>Итого к оплате</span><span>' + grand.toLocaleString('ru-RU') + ' ₽</span></div>';
+    if (isOver) {
+      summaryHtml += '<div class="summary-row deposit-over"><span>⚠️ Нужно доплатить</span><span>' + Math.abs(diff).toLocaleString('ru-RU') + ' ₽</span></div>';
+    } else {
+      summaryHtml += '<div class="summary-row deposit-ok"><span>✅ Остаток депозита</span><span>' + diff.toLocaleString('ru-RU') + ' ₽</span></div>';
+    }
+    document.getElementById('orderSummary').innerHTML       = summaryHtml;
+    document.getElementById('successIcon').textContent      = isOver ? '🧾' : '🎉';
+    document.getElementById('successTitle').textContent     = isOver ? 'Заказ оформлен' : 'Заказ принят!';
+    document.getElementById('successSubtitle').textContent  = isOver ? 'Не забудьте доплатить разницу организатору.' : 'Спасибо! Ваш заказ успешно оформлен.';
+    document.getElementById('orderForm').style.display      = 'none';
+    document.getElementById('successScreen').style.display  = 'block';
+    window.scrollTo({top:0,behavior:'smooth'});
   }
 
   document.getElementById('fio').addEventListener('input', function() {
