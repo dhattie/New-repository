@@ -561,6 +561,73 @@
       <div class="section-error" id="rollError">Выберите ролл или «Без ролл»</div>
     </div>
 
+    <!-- БУРГЕРЫ -->
+    <div class="section">
+      <div class="section-title">🍔 Бургеры</div>
+      <div class="dishes">
+
+        <label class="dish-card" onclick="selectDish('burger',1550,'Чикен бургер с картофелем по-деревенски')">
+          <input type="radio" name="burger" value="1550">
+          <img class="dish-img" src="images/burger_chicken.jpg" alt="Чикен бургер">
+          <div class="dish-info">
+            <div class="dish-name">Чикен бургер с картофелем по-деревенски</div>
+            <div class="dish-desc">бургер с куриным филе, подается с картофелем по-деревенски и соусом тар-тар | 400/100/50 гр</div>
+            <div class="dish-price">1 550 ₽</div>
+          </div>
+        </label>
+
+        <label class="dish-card" onclick="selectDish('burger',1850,'Биф Бургер классический с картофелем фри')">
+          <input type="radio" name="burger" value="1850">
+          <img class="dish-img" src="images/burger_beef.jpg" alt="Биф Бургер">
+          <div class="dish-info">
+            <div class="dish-name">Биф Бургер классический с картофелем фри</div>
+            <div class="dish-desc">бургер с котлетой из мраморной говядины, картофель фри, соус айоли и кетчуп | 400/100/50 гр</div>
+            <div class="dish-price">1 850 ₽</div>
+          </div>
+        </label>
+
+        <label class="dish-card" onclick="selectDish('burger',1550,'Мини Биф Бургер классический с картофелем фри')">
+          <input type="radio" name="burger" value="1550">
+          <img class="dish-img" src="images/burger_mini_beef.jpg" alt="Мини Биф Бургер">
+          <div class="dish-info">
+            <div class="dish-name">Мини Биф Бургер классический с картофелем фри</div>
+            <div class="dish-desc">бургер с котлетой из мраморной говядины, картофель фри, соус айоли и кетчуп | 320/100/50 гр</div>
+            <div class="dish-price">1 550 ₽</div>
+          </div>
+        </label>
+
+        <label class="dish-card" onclick="selectDish('burger',1550,'Бургер «Латинос» с картофелем фри')">
+          <input type="radio" name="burger" value="1550">
+          <img class="dish-img" src="images/burger_latinos.jpg" alt="Бургер Латинос">
+          <div class="dish-info">
+            <div class="dish-name">Бургер «Латинос» с картофелем фри</div>
+            <div class="dish-desc">лепешка тортилья, котлета из мраморной говядины, картофель фри, соус айоли и кетчуп | 265/100/50 гр</div>
+            <div class="dish-price">1 550 ₽</div>
+          </div>
+        </label>
+
+        <div class="custom-dish" id="customWrap-burger" onclick="selectCustom('burger')">
+          <div class="custom-dish-header">
+            <input type="radio" name="burger" id="customRadio-burger" value="custom">
+            ✏️ Другое блюдо
+          </div>
+          <div class="custom-fields">
+            <input type="text" class="text-input" id="customName-burger" placeholder="Название блюда" oninput="updateCustomPrice('burger')" onclick="event.stopPropagation()">
+            <div class="price-input-wrap">
+              <input type="number" class="text-input" id="customPrice-burger" placeholder="Цена" min="0" oninput="updateCustomPrice('burger')" onclick="event.stopPropagation()" required>
+            </div>
+          </div>
+        </div>
+
+        <label class="skip-option" onclick="selectDish('burger',0,'Без бургера')">
+          <input type="radio" name="burger" value="0">
+          🚫 Без бургера
+        </label>
+
+      </div>
+      <div class="section-error" id="burgerError">Выберите бургер или «Без бургера»</div>
+    </div>
+
     <!-- НАПИТКИ -->
     <div class="section">
       <div class="section-title">🥤 Напитки</div>
@@ -692,73 +759,6 @@
       <div class="section-error" id="drinkError">Выберите напиток или «Без напитка»</div>
     </div>
 
-    <!-- БУРГЕРЫ -->
-    <div class="section">
-      <div class="section-title">🍔 Бургеры</div>
-      <div class="dishes">
-
-        <label class="dish-card" onclick="selectDish('burger',1550,'Чикен бургер с картофелем по-деревенски')">
-          <input type="radio" name="burger" value="1550">
-          <img class="dish-img" src="images/burger_chicken.jpg" alt="Чикен бургер">
-          <div class="dish-info">
-            <div class="dish-name">Чикен бургер с картофелем по-деревенски</div>
-            <div class="dish-desc">бургер с куриным филе, подается с картофелем по-деревенски и соусом тар-тар | 400/100/50 гр</div>
-            <div class="dish-price">1 550 ₽</div>
-          </div>
-        </label>
-
-        <label class="dish-card" onclick="selectDish('burger',1850,'Биф Бургер классический с картофелем фри')">
-          <input type="radio" name="burger" value="1850">
-          <img class="dish-img" src="images/burger_beef.jpg" alt="Биф Бургер">
-          <div class="dish-info">
-            <div class="dish-name">Биф Бургер классический с картофелем фри</div>
-            <div class="dish-desc">бургер с котлетой из мраморной говядины, картофель фри, соус айоли и кетчуп | 400/100/50 гр</div>
-            <div class="dish-price">1 850 ₽</div>
-          </div>
-        </label>
-
-        <label class="dish-card" onclick="selectDish('burger',1550,'Мини Биф Бургер классический с картофелем фри')">
-          <input type="radio" name="burger" value="1550">
-          <img class="dish-img" src="images/burger_mini_beef.jpg" alt="Мини Биф Бургер">
-          <div class="dish-info">
-            <div class="dish-name">Мини Биф Бургер классический с картофелем фри</div>
-            <div class="dish-desc">бургер с котлетой из мраморной говядины, картофель фри, соус айоли и кетчуп | 320/100/50 гр</div>
-            <div class="dish-price">1 550 ₽</div>
-          </div>
-        </label>
-
-        <label class="dish-card" onclick="selectDish('burger',1550,'Бургер «Латинос» с картофелем фри')">
-          <input type="radio" name="burger" value="1550">
-          <img class="dish-img" src="images/burger_latinos.jpg" alt="Бургер Латинос">
-          <div class="dish-info">
-            <div class="dish-name">Бургер «Латинос» с картофелем фри</div>
-            <div class="dish-desc">лепешка тортилья, котлета из мраморной говядины, картофель фри, соус айоли и кетчуп | 265/100/50 гр</div>
-            <div class="dish-price">1 550 ₽</div>
-          </div>
-        </label>
-
-        <div class="custom-dish" id="customWrap-burger" onclick="selectCustom('burger')">
-          <div class="custom-dish-header">
-            <input type="radio" name="burger" id="customRadio-burger" value="custom">
-            ✏️ Другое блюдо
-          </div>
-          <div class="custom-fields">
-            <input type="text" class="text-input" id="customName-burger" placeholder="Название блюда" oninput="updateCustomPrice('burger')" onclick="event.stopPropagation()">
-            <div class="price-input-wrap">
-              <input type="number" class="text-input" id="customPrice-burger" placeholder="Цена" min="0" oninput="updateCustomPrice('burger')" onclick="event.stopPropagation()" required>
-            </div>
-          </div>
-        </div>
-
-        <label class="skip-option" onclick="selectDish('burger',0,'Без бургера')">
-          <input type="radio" name="burger" value="0">
-          🚫 Без бургера
-        </label>
-
-      </div>
-      <div class="section-error" id="burgerError">Выберите бургер или «Без бургера»</div>
-    </div>
-
     <button class="submit-btn" onclick="submitOrder()">Отправить заказ</button>
 
   </div><!-- /orderForm -->
@@ -773,7 +773,7 @@
 </div><!-- /container -->
 
 <script>
-  const SCRIPT_URL = 'YOUR_GOOGLE_SCRIPT_URL_HERE';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyInxtmDE5M6AanaB86Ygi4WleYVVtF6JV-APc1RuFvZogl6w6IXQzB20OlqmoSdEVb/exec';
   const DEPOSIT = 4000;
 
   const GROUPS = ['salad','soup','main','roll','drink','burger'];
@@ -782,6 +782,7 @@
   GROUPS.forEach(g => state[g] = { price: null, name: '' });
 
   let serverExtra = 0;
+  let serverDeposit = DEPOSIT; // по умолчанию 4000, но может быть обновлён из таблицы
 
   // Device ID
   function getDeviceId() {
@@ -798,7 +799,8 @@
       .then(data => {
         if (data.status === 'ok') {
           serverExtra = parseFloat(data.extra) || 0;
-          // Prefill FIO
+          // Если в таблице есть доп. взнос — обновляем доступный бюджет
+          serverDeposit = DEPOSIT + serverExtra;
           if (data.fio) document.getElementById('fio').value = data.fio;
         }
         updateBudget();
@@ -863,9 +865,9 @@
     const subtotal = getSubtotal();
     const service = Math.round(subtotal * 0.10);
     const grand   = subtotal + service;
-    const balance = DEPOSIT + serverExtra - grand;
+    const balance = serverDeposit - grand;
     const hasAny  = GROUPS.some(g => state[g].price !== null);
-    const pct     = Math.min((grand / DEPOSIT) * 100, 110);
+    const pct     = Math.min((grand / serverDeposit) * 100, 110);
 
     document.getElementById('totalDisplay').textContent   = subtotal.toLocaleString('ru-RU') + ' ₽';
     document.getElementById('serviceDisplay').textContent = service.toLocaleString('ru-RU') + ' ₽';
@@ -886,15 +888,14 @@
       return;
     }
 
-    const diff = DEPOSIT + serverExtra - grand;
-    if (diff >= 0) {
+    if (balance >= 0) {
       statusEl.className = 'deposit-status ok';
-      statusEl.innerHTML = '✅ Остаток после заказа: <strong>' + diff.toLocaleString('ru-RU') + ' ₽</strong>';
+      statusEl.innerHTML = '✅ Остаток после заказа: <strong>' + balance.toLocaleString('ru-RU') + ' ₽</strong>';
       barEl.className    = 'budget-bar ok';
       fillEl.className   = 'budget-fill';
     } else {
       statusEl.className = 'deposit-status over';
-      statusEl.innerHTML = '⚠️ Нужно доплатить: <strong>' + Math.abs(diff).toLocaleString('ru-RU') + ' ₽</strong>';
+      statusEl.innerHTML = '⚠️ Превышение бюджета на <strong>' + Math.abs(balance).toLocaleString('ru-RU') + ' ₽</strong> — можно внести доплату организатору';
       barEl.className    = 'budget-bar over';
       fillEl.className   = 'budget-fill over';
     }
@@ -945,7 +946,7 @@
     const subtotal = getSubtotal();
     const service  = Math.round(subtotal * 0.10);
     const grand    = subtotal + service;
-    const diff     = DEPOSIT + serverExtra - grand;
+    const diff     = serverDeposit - grand;
     const isOver   = diff < 0;
 
     let summaryHtml = '<div class="summary-row" style="font-weight:700;border-bottom:2px solid var(--border);padding-bottom:12px;margin-bottom:4px"><span>👤 ' + fio + '</span></div>';
