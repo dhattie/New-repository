@@ -1077,6 +1077,19 @@
     if (!validateCustomFields()) valid = false;
     if (!valid) { window.scrollTo({top:0,behavior:'smooth'}); return; }
 
+    // Проверка минимальной суммы (без сервиса)
+    const MIN_ORDER = 3125;
+    const currentSubtotal = getSubtotal();
+    if (currentSubtotal < MIN_ORDER) {
+      document.getElementById('noDishError').textContent =
+        'Минимальная сумма заказа — ' + MIN_ORDER.toLocaleString('ru-RU') + ' ₽. Сейчас: ' + currentSubtotal.toLocaleString('ru-RU') + ' ₽';
+      document.getElementById('noDishError').style.display = 'block';
+      window.scrollTo({top:0,behavior:'smooth'});
+      return;
+    } else {
+      document.getElementById('noDishError').style.display = 'none';
+    }
+
     // [FIX 5] блокируем кнопку
     isSubmitting = true;
     const btn = document.querySelector('.submit-btn');
